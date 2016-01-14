@@ -9,8 +9,8 @@ totalPoints = 100000 # Total number of points in the waveform
 
 
 fieldStrength = 1 # B-field strength in uT
-pumpTime = 30 # Duration of the pumping
-pumpAmp = 0.5 # Amplitude of the pump in fractions of set Vpp
+pumpTime = 25 # Duration of the pumping
+pumpAmp = 1 # Amplitude of the pump in fractions of set Vpp
 probeAmp = 0.03 # Amplitude of the probe in fractions of set Vpp
 dutyCycle = 0.1
 
@@ -34,12 +34,41 @@ while (cyclePoints < periodPoints):
 while (len(pumpProbeCycle) < pumpPoints):
     pumpProbeCycle.extend(singlePumpCycle)        
 
-while (len(pumpProbeCycle) < totalPoints):
-    pumpProbeCycle.extend([probeAmp])
+#while (len(pumpProbeCycle) < totalPoints):
+#    pumpProbeCycle.extend([probeAmp])
 
-print(singlePumpCycle)
-#print(pumpProbeCycle)
+
+# Plot the generated pump-probe cycle
 xVals = list(range(len(pumpProbeCycle)))
-
 plt.plot(xVals,pumpProbeCycle)
-plt.show()
+#plt.show()
+
+# Connect to Keysight signal generator (idVendor, idProduct) in decimal
+inst = usbtmc.Instrument(2391,11271)
+
+print("Connected to device: ")
+print(inst.ask("*IDN?"))
+
+dataStrList = ['{:.3f}'.format(x) for x in pumpProbeCycle]
+dataStr = ",".join(dataStrList)
+command = "DATA:ARB Cs_cycle," + dataStr
+
+print(command)
+
+inst.write("FUNC:ARB:SRATE 1E6")
+inst.write("FUNC:ARB:FILTER OFF")
+inst.write("FUNC:ARB:PTPEAK 6")
+
+inst.write(command)
+
+inst.write("FUNC:ARB Cs_cycle")
+inst.write("MMEM:STORE:DATA 'INT:\Cs_cycle.arb'")
+inst.write("DATA:VOL:CLEAR")
+inst.write("MMEM:LOAD:DATA 'INT:\Cs_cycle.arb'")
+inst.write("FUNC ARB")
+inst.write("FUNC:ARB 'INT:\Cs_cycle.arb'")
+
+
+inst.write("OUTPUT ON")
+
+inst.close()
