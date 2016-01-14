@@ -1,3 +1,7 @@
+import matplotlib.pyplot as plt
+import math as m
+import usbtmc
+
 # Values valid for all pump-probe waveforms
 gammaL = 3500 # Gyromagnetic ratio of Cs 
 totalTime = 100 # Duration of the total pump-probe cycle
@@ -14,6 +18,7 @@ nuL = fieldStrength * gammaL
 periodL = 1/nuL
 periodPoints = periodL * totalPoints
 dutyPoints = periodPoints * dutyCycle
+pumpPoints = m.floor((pumpTime/totalTime) * totalPoints)
 
 singlePumpCycle = []
 pumpProbeCycle = []
@@ -26,4 +31,15 @@ while (cyclePoints < periodPoints):
         singlePumpCycle.append(0.0)
     cyclePoints += 1
 
+while (len(pumpProbeCycle) < pumpPoints):
+    pumpProbeCycle.extend(singlePumpCycle)        
+
+while (len(pumpProbeCycle) < totalPoints):
+    pumpProbeCycle.extend([probeAmp])
+
 print(singlePumpCycle)
+#print(pumpProbeCycle)
+xVals = list(range(len(pumpProbeCycle)))
+
+plt.plot(xVals,pumpProbeCycle)
+plt.show()
