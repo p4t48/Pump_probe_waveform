@@ -34,7 +34,7 @@ offset = float(sys.argv[6])
 # Values valid for all pump-probe waveforms
 gammaL = 3500 # Gyromagnetic ratio of Cs (3500 Hz/uT)
 totalTime = 0.1 # Duration of the total pump-probe cycle in s
-totalPoints = 100000 # Total number of points in the waveform
+totalPoints = 1000000 # Total number of points in the waveform
 
 # Larmor frequency and period
 nuL = fieldStrength * gammaL
@@ -94,7 +94,7 @@ commandPumpProbe = 'data:seq #%s%s%s' % (bytesLen,charLen,pumpProbe)
 # Start setting up the signal generator
 #
 
-inst.write('func:arb:srate 1e6')
+inst.write('func:arb:srate 1e7')
 inst.write('func:arb:filter off')
 inst.write('func:arb:ptpeak 3')
 
