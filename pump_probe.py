@@ -29,7 +29,6 @@ pumpAmp = float(sys.argv[3])
 probeAmp = float(sys.argv[4])
 dutyCycle = float(sys.argv[5])
 
-
 # Values valid for all pump-probe waveforms
 gammaL = 3500 # Gyromagnetic ratio of Cs (3500 Hz/uT)
 totalTime = 0.1 # Duration of the total pump-probe cycle in s
@@ -52,6 +51,10 @@ while (cyclePoints < periodPoints):
         singlePumpCycle.append(0.0)
     cyclePoints += 1
 
+# Points required for the transition pulse between pump and probe
+transitionPulse = []
+for i in range(m.floor(dutyPoints)):
+    transitionPulse.append(pumpAmp)
 
 # Connect to Keysight signal generator (idVendor, idProduct) in decimal
 inst = usbtmc.Instrument(2391,11271)
@@ -71,11 +74,16 @@ probeStrList = ['{:.3f}'.format(x) for x in probeList]
 probeStr = ','.join(probeStrList)
 commandProbe = 'data:arb probe,' + probeStr
 
+# Idem for transition pulse between pump and probe
+transitionStrList = ['{:.3f}'.format(x) for x in transitionPulse]
+transitionStr = ','.join(transitionStrList)
+commandTransition = 'data:arb transition,' + transitionStr
+
 # Generates SCPI command which builds the pump-probe waveform on the signal generator
 pumpPoints = m.floor(pumpTime/periodL)*periodPoints
 pumpPulses = m.floor(pumpPoints/periodPoints)
 probeLength = m.floor((totalPoints - pumpPoints)/probePoints)
-pumpProbe = '"Cs_cycle","pump",%i,repeat,maintain,5,"probe",%i,repeat,maintain,5' % (pumpPulses,probeLength)
+pumpProbe = '"Cs_cycle","pump",%i,repeat,maintain,5,"transition",0,once,highAtStart,5,"probe",%i,repeat,maintain,5' % (pumpPulses,probeLength)
 charLen = str(len(pumpProbe))
 bytesLen = str(len(charLen))
 commandPumpProbe = 'data:seq #%s%s%s' % (bytesLen,charLen,pumpProbe)
@@ -90,6 +98,7 @@ inst.write('func:arb:ptpeak 3')
 
 # Send command which build pump-probe waveform on signal generator
 inst.write(commandPump)
+inst.write(commandTransition)
 inst.write(commandProbe)
 inst.write(commandPumpProbe)
 
