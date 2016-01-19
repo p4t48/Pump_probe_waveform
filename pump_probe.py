@@ -14,6 +14,7 @@ where: - B: field strength in uT
        - Apump: Pump amplitude as a fraction of Vpp
        - Aprobe: Probe amplitdue as a fraction of Vpp
        - Duty: Duty cycle of the pump waveform
+       - Offset: Offset added to waveform (fraction of Vpp) to adjust EOM
 
 """
 
@@ -28,6 +29,7 @@ pumpTime = float(sys.argv[2])
 pumpAmp = float(sys.argv[3]) 
 probeAmp = float(sys.argv[4])
 dutyCycle = float(sys.argv[5])
+offset = float(sys.argv[6])
 
 # Values valid for all pump-probe waveforms
 gammaL = 3500 # Gyromagnetic ratio of Cs (3500 Hz/uT)
@@ -46,15 +48,15 @@ singlePumpCycle = []
 cyclePoints = 0
 while (cyclePoints < periodPoints):
     if (cyclePoints < dutyPoints):
-        singlePumpCycle.append(pumpAmp)
+        singlePumpCycle.append(pumpAmp+offset)
     else:
-        singlePumpCycle.append(0.0)
+        singlePumpCycle.append(offset)
     cyclePoints += 1
 
 # Points required for the transition pulse between pump and probe
 transitionPulse = []
 for i in range(m.floor(dutyPoints)):
-    transitionPulse.append(pumpAmp)
+    transitionPulse.append(pumpAmp+offset)
 
 # Connect to Keysight signal generator (idVendor, idProduct) in decimal
 inst = usbtmc.Instrument(2391,11271)
@@ -69,7 +71,7 @@ commandPump = 'data:arb pump,' + pumpStr
 
 # Idem for probe segment of 10 data points
 probePoints = 10
-probeList = [probeAmp for x in range(probePoints)]
+probeList = [probeAmp+offset for x in range(probePoints)]
 probeStrList = ['{:.3f}'.format(x) for x in probeList]
 probeStr = ','.join(probeStrList)
 commandProbe = 'data:arb probe,' + probeStr
