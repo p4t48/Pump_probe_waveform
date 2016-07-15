@@ -36,6 +36,10 @@ gammaL = 3498.621 # Gyromagnetic ratio of Cs (3500 Hz/uT)
 totalTime = 0.1 # Duration of the total pump-probe cycle in s
 totalPoints = 1000000 # Total number of points in the waveform
 
+#
+# Generating the points for the pump-probe waveform 
+#
+
 # Larmor frequency and period
 nuL = fieldStrength * gammaL
 periodL = 1/nuL
@@ -58,32 +62,50 @@ transitionPulse = []
 for i in range(m.floor(dutyPoints)):
     transitionPulse.append(pumpAmp+offset)
 
+#
+# Generating points for the trigger signal which is synchronize to pump-probe
+#
 
-#
+triggerSinglePumpCycle = []
+
+cyclePoints = 0
+while (cyclePoints < periodPoints):
+    triggerSinglePumpCycle.append(1)
+    cyclePoints += 1
+
+triggerTransitionPulse = []
+
+for i in range(m.floor(dutyPoints)):
+    triggerTransitionPulse.append(1)
+
+
 # Connect to Keysight signal generator (idVendor, idProduct) in decimal
-#
 
 inst = usbtmc.Instrument(2391,11271)
 
 print('Connected to device: ')
 print(inst.ask('*IDN?')) # Is it there?
 
+#
+# Generate SCPI command to send pump-probe waveform to channel 1 of the signal generator.
+#
+
 # Generates SCPI command to send a single pump pulse to the signal genearator
 pumpStrList = ['{:.3f}'.format(x) for x in singlePumpCycle]
 pumpStr = ','.join(pumpStrList)
-commandPump = 'data:arb pump,' + pumpStr
+commandPump = 'sour1:data:arb pump,' + pumpStr
 
 # Idem for probe segment of 10 data points
 probePoints = 10
 probeList = [probeAmp+offset for x in range(probePoints)]
 probeStrList = ['{:.3f}'.format(x) for x in probeList]
 probeStr = ','.join(probeStrList)
-commandProbe = 'data:arb probe,' + probeStr
+commandProbe = 'sour1:data:arb probe,' + probeStr
 
 # Idem for transition pulse between pump and probe
 transitionStrList = ['{:.3f}'.format(x) for x in transitionPulse]
 transitionStr = ','.join(transitionStrList)
-commandTransition = 'data:arb transition,' + transitionStr
+commandTransition = 'sour1:data:arb transition,' + transitionStr
 
 # Generates SCPI command which builds the pump-probe waveform on the signal generator
 pumpPoints = m.floor(pumpTime/periodL)*periodPoints
@@ -92,55 +114,100 @@ probeLength = m.floor((totalPoints - pumpPoints)/probePoints)
 pumpProbe = '"Cs_cycle","pump",%i,repeat,maintain,5,"transition",0,once,highAtStart,5,"probe",%i,repeat,maintain,5' % (pumpPulses,probeLength)
 charLen = str(len(pumpProbe))
 bytesLen = str(len(charLen))
-commandPumpProbe = 'data:seq #%s%s%s' % (bytesLen,charLen,pumpProbe)
+commandPumpProbe = 'sour1:data:seq #%s%s%s' % (bytesLen,charLen,pumpProbe)
+
+#
+# Generate SCPI command to send trigger signal to channel 2 of the signal generator.
+#
+
+# Generates SCPI command to send a single pump pulse length trigger signal to the signal genearator
+triggerPumpStrList = ['{:.3f}'.format(x) for x in triggerSinglePumpCycle]
+triggerPumpStr = ','.join(triggerPumpStrList)
+commandTriggerPump = 'sour2:data:arb trPump,' + triggerPumpStr
+
+# Idem for probe trigger segment of 10 data points
+triggerProbePoints = 10
+triggerProbeList = [0 for x in range(triggerProbePoints)]
+triggerProbeStrList = ['{:.3f}'.format(x) for x in triggerProbeList]
+triggerProbeStr = ','.join(triggerProbeStrList)
+commandTriggerProbe = 'sour2:data:arb trProbe,' + triggerProbeStr
+
+# Idem for transition pulse between pump and probe
+triggerTransitionStrList = ['{:.3f}'.format(x) for x in triggerTransitionPulse]
+triggerTransitionStr = ','.join(triggerTransitionStrList)
+commandTriggerTransition = 'sour2:data:arb trTransition,' + triggerTransitionStr
+
+# Generates SCPI command which builds the entire trigger waveform on the signal generator
+trigger = '"Cs_trigger","trPump",%i,repeat,maintain,5,"trTransition",0,once,highAtStart,5,"trProbe",%i,repeat,maintain,5' % (pumpPulses,probeLength)
+triggerCharLen = str(len(trigger))
+triggerBytesLen = str(len(triggerCharLen))
+commandTrigger = 'sour2:data:seq #%s%s%s' % (triggerBytesLen,triggerCharLen,trigger)
+
+"""
+# Keep trigger signal high during pumping and low during probing
+commandPumpTrigger = 'sour2:data:arb pumpTrigger,1,1,1,1,1,1,1,1,1,1'
+commandProbeTrigger = 'sour2:data:arb probeTrigger,0,0,0,0,0,0,0,0,0,0'
+
+# Generate trigger waveform
+pumpTriggerPoints = pumpPoints/10
+probeTriggerPoints = (totalPoints - pumpTriggerPoints)/10
+trigger = '"Cs_trigger","pumpTrigger",%i,repeat,maintain,5,"probeTrigger",%i,repeat,maintain,5' % (pumpTriggerPoints, probeTriggerPoints)
+
+# Command to load trigger signal to the waveform generator
+triggerCharLen = str(len(trigger))
+triggerBytesLen = str(len(triggerCharLen))
+commandTrigger = 'sour2:data:seq #%s%s%s' % (triggerBytesLen, triggerCharLen, trigger)
+"""
 
 #
 # Start setting up the signal generator
 #
 
+# Sampling parameters for channel 1
+inst.write('sour1:func:arb:srate 1e7')
+inst.write('sour1:func:arb:filter off')
+inst.write('sour1:func:arb:ptpeak 6')
 
-inst.write('func:arb:srate 1e7')
-inst.write('func:arb:filter off')
-inst.write('func:arb:ptpeak 6')
+# Sampling parameters for channel 2
+inst.write('sour2:func:arb:srate 1e7')
+inst.write('sour2:func:arb:filter off')
+inst.write('sour2:func:arb:ptpeak 6')
 
-
-# Send command which build pump-probe waveform on signal generator
+# Send commands which build pump-probe waveform on the signal generator.
 inst.write(commandPump)
 inst.write(commandTransition)
 inst.write(commandProbe)
 inst.write(commandPumpProbe)
 
-# Save pump-probe waveform
-inst.write('func:arb Cs_cycle')
-inst.write('mmem:store:data "INT:\Cs_cycle.seq"')
-inst.write('data:vol:clear')
+# Send commands wich will build the trigger waveform on the signal generator.
+inst.write(commandTriggerPump)
+inst.write(commandTriggerTransition)
+inst.write(commandTriggerProbe)
+inst.write(commandTrigger)
+
+# Save pump-probe waveform and trigger waveform
+inst.write('sour1:func:arb Cs_cycle')
+inst.write('mmem:store:data1 "INT:\Cs_cycle.seq"')
+
+inst.write('sour2:func:arb Cs_trigger')
+inst.write('mmem:store:data2 "INT:\Cs_trigger.seq"')
+
+inst.write('sour1:data:vol:clear')
+inst.write('sour2:data:vol:clear')
 
 # Load waveform to flash memory to generate
-inst.write('mmem:load:data "INT:\Cs_cycle.seq"')
-inst.write('func arb')
-inst.write('func:arb "INT:\Cs_cycle.seq"')
+inst.write('mmem:load:data1 "INT:\Cs_cycle.seq"')
+inst.write('sour1:func arb')
+inst.write('sour1:func:arb "INT:\Cs_cycle.seq"')
 
-"""
-# Generate proper sync signal for external triggering
-inst.write('apply:arb 1 MHz,6.0,0.0 V')
-inst.write('burst:mode trig')
-inst.write('burst:ncycles 1')
-inst.write('burst:int:per 1.1e-2')
-inst.write('burst:phase 0')
-inst.write('trigger:source imm')
-inst.write('burst:state on')
+inst.write('mmem:load:data2 "INT:\Cs_trigger.seq"')
+inst.write('sour2:func arb')
+inst.write('sour2:func:arb "INT:\Cs_trigger.seq"')
 
+inst.write('func:arb:sync')
 
-inst.write('frequency:mode cw')
-inst.write('output:sync on')
-inst.write('output:sync:mode mark')
-inst.write('marker:point 30000')
-inst.write('output:sync:polarity normal')
-inst.write('output:sync:source CH1')
-inst.write('output:trigger on')
-"""
-
-inst.write('output on')
+inst.write('output1 on')
+inst.write('output2 on')
 
 inst.close()
 
