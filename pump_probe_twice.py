@@ -13,6 +13,7 @@ where: - B: field strength in uT (up to 35 uT)
        - Tpump: pumping time in s
        - Apump: Pump amplitude as a fraction of Vpp
        - Aprobe: Probe amplitdue as a fraction of Vpp
+       - Aprobe2: 2nd Probe amplitdue as a fraction of Vpp
        - Duty: Duty cycle of the pump waveform
        - Offset: Offset added to waveform (fraction of Vpp) to adjust EOM
 
@@ -28,8 +29,9 @@ fieldStrength = float(sys.argv[1])
 pumpTime = float(sys.argv[2]) 
 pumpAmp = float(sys.argv[3]) 
 probeAmp = float(sys.argv[4])
-dutyCycle = float(sys.argv[5])
-offset = float(sys.argv[6])
+probeAmp2 = float(sys.argv[5])
+dutyCycle = float(sys.argv[6])
+offset = float(sys.argv[7])
 
 # Values valid for all pump-probe waveforms
 gammaL = 3498.621 # Gyromagnetic ratio of Cs (3500 Hz/uT)
@@ -80,6 +82,13 @@ probeStrList = ['{:.3f}'.format(x) for x in probeList]
 probeStr = ','.join(probeStrList)
 commandProbe = 'data:arb probe,' + probeStr
 
+# Idem for probe segment of 10 data points
+probePoints = 10
+probeList = [probeAmp2+offset for x in range(probePoints)]
+probeStrList = ['{:.3f}'.format(x) for x in probeList]
+probeStr = ','.join(probeStrList)
+commandProbeTwo = 'data:arb probetwo,' + probeStr
+
 # Idem for transition pulse between pump and probe
 transitionStrList = ['{:.3f}'.format(x) for x in transitionPulse]
 transitionStr = ','.join(transitionStrList)
@@ -89,7 +98,7 @@ commandTransition = 'data:arb transition,' + transitionStr
 pumpPoints = m.floor(pumpTime/periodL)*periodPoints
 pumpPulses = m.floor(pumpPoints/periodPoints)
 probeLength = m.floor((totalPoints - pumpPoints)/probePoints)
-pumpProbe = '"Cs_cycle","pump",%i,repeat,maintain,5,"transition",0,once,highAtStart,5,"probe",%i,repeat,maintain,5' % (pumpPulses,probeLength)
+pumpProbe = '"Cs_cycle","pump",%i,repeat,maintain,5,"transition",0,once,highAtStart,5,"probe",%i,repeat,maintain,5,"pump",%i,repeat,maintain,5,"transition",0,once,highAtStart,5,"probetwo",%i,repeat,maintain,5' % (pumpPulses,probeLength,pumpPulses,probeLength)
 charLen = str(len(pumpProbe))
 bytesLen = str(len(charLen))
 commandPumpProbe = 'data:seq #%s%s%s' % (bytesLen,charLen,pumpProbe)
@@ -108,6 +117,7 @@ inst.write('func:arb:ptpeak 6')
 inst.write(commandPump)
 inst.write(commandTransition)
 inst.write(commandProbe)
+inst.write(commandProbeTwo)
 inst.write(commandPumpProbe)
 
 # Save pump-probe waveform
