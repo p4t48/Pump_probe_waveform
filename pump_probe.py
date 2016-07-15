@@ -63,7 +63,8 @@ for i in range(m.floor(dutyPoints)):
     transitionPulse.append(pumpAmp+offset)
 
 #
-# Generating points for the trigger signal which is synchronize to pump-probe
+# Generating points for the trigger signal which is synchronized to pump-probe.
+# The trigger signal is high during pumping and low during probing.
 #
 
 triggerSinglePumpCycle = []
@@ -143,22 +144,6 @@ triggerCharLen = str(len(trigger))
 triggerBytesLen = str(len(triggerCharLen))
 commandTrigger = 'sour2:data:seq #%s%s%s' % (triggerBytesLen,triggerCharLen,trigger)
 
-"""
-# Keep trigger signal high during pumping and low during probing
-commandPumpTrigger = 'sour2:data:arb pumpTrigger,1,1,1,1,1,1,1,1,1,1'
-commandProbeTrigger = 'sour2:data:arb probeTrigger,0,0,0,0,0,0,0,0,0,0'
-
-# Generate trigger waveform
-pumpTriggerPoints = pumpPoints/10
-probeTriggerPoints = (totalPoints - pumpTriggerPoints)/10
-trigger = '"Cs_trigger","pumpTrigger",%i,repeat,maintain,5,"probeTrigger",%i,repeat,maintain,5' % (pumpTriggerPoints, probeTriggerPoints)
-
-# Command to load trigger signal to the waveform generator
-triggerCharLen = str(len(trigger))
-triggerBytesLen = str(len(triggerCharLen))
-commandTrigger = 'sour2:data:seq #%s%s%s' % (triggerBytesLen, triggerCharLen, trigger)
-"""
-
 #
 # Start setting up the signal generator
 #
@@ -171,7 +156,7 @@ inst.write('sour1:func:arb:ptpeak 6')
 # Sampling parameters for channel 2
 inst.write('sour2:func:arb:srate 1e7')
 inst.write('sour2:func:arb:filter off')
-inst.write('sour2:func:arb:ptpeak 6')
+inst.write('sour2:func:arb:ptpeak 3')
 
 # Send commands which build pump-probe waveform on the signal generator.
 inst.write(commandPump)
@@ -204,8 +189,10 @@ inst.write('mmem:load:data2 "INT:\Cs_trigger.seq"')
 inst.write('sour2:func arb')
 inst.write('sour2:func:arb "INT:\Cs_trigger.seq"')
 
+# Synchronize the start points of both waveforms for proper triggering.
 inst.write('func:arb:sync')
 
+# Turn both outputs on
 inst.write('output1 on')
 inst.write('output2 on')
 
