@@ -7,7 +7,7 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.connect((ip , port))
 
 qStr = sock.sendall(b'*IDN?')
-reply = sock.recv(4096)
+reply = sock.recv(1024)
 
 print (str(reply))
 sock.close()
